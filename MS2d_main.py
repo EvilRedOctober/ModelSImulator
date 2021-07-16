@@ -77,6 +77,7 @@ class Paint_Widget(QtWidgets.QWidget):
         self.img = QtGui.QImage(1, 1,
                                 QtGui.QImage.Format_ARGB32_Premultiplied)
 
+    @QtCore.pyqtSlot(QtGui.QImage)
     def change_image(self, img):
         self.img = img
         self.update()
@@ -219,10 +220,12 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         """If changing speed of simulation"""
         self.label.setText('Скорость симуляции: ' + SPEED[pos])
 
+    @QtCore.pyqtSlot()
     def on_ended(self):
         time = "<b>" + datetime.now().strftime("%d.%m.%Y %H:%M:%S") + "</b>"
         self.textHistory.append(time + " Симуляция закончена.")
 
+    @QtCore.pyqtSlot(list)
     def graph_change(self, values):
         self.x.append(self.x[-1] + 1)  # update data
         for i, value in enumerate(values):
