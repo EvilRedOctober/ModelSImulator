@@ -685,7 +685,6 @@ class Segregation(Abstract_model):
                     neighbours = [self._field_prev[(coord[0] % self.size, coord[1] % self.size)] for coord in coords]
                     same = sum((1 for neighbour in neighbours if neighbour == self._field[i][j]))
                     total = sum((1 for neighbour in neighbours if neighbour != 0))
-                    print(total, same, self._field[i][j])
                     segregation = same / total if total else 1
                     # Counting current segregation level
                     total_segregation += segregation
