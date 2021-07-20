@@ -1,5 +1,3 @@
-# TODO list:
-#  Segregation
 from abc import abstractmethod, ABC
 from random import random, randint, choice, shuffle
 from collections import deque
@@ -647,6 +645,67 @@ class Forest_Fire(Abstract_model):
         return self._field.sum() == 0
 
 
+# 9
+class Segregation(Abstract_model):
+    """A simulation of race segregation"""
+    MODEL_TEXT = "Модель сегрегации - модель поведения, предложенная Томасом Шеллингом в 1969 году. \nМодель " \
+                 "представляет собой сетку, где каждая клетка является домом. Дома могут быть заняты агентами " \
+                 "синего или красного цвета, либо быть пустыми. \nВ любой момент времени агент может быть счастлив " \
+                 "или несчастлив - зависит от процента соседей того же цвета, что и агент. При моделировании на " \
+                 "каждом шаге выбирается случайный агент. Если он несчастлив, то выбирается случайная свободная " \
+                 "клетка и агент перемещается туда.\nВ процессе моделирования образуются кластеры одинаковых цветов, " \
+                 "что показывает возникновение сегрегации."
+    COLOR_LIST = ('#e1e1e1', '#af0000', '#0096ff')
+    # 0 - empty, 1 - red, 2 - blue
+
+    def __init__(self, size: int = 10, neighbours_percent: float = 0.3, whites: int = 10, reds: int = 45,
+                 blues: int = 45):
+        super().__init__(size)
+        self.neighbours_percent = neighbours_percent
+        s = whites + reds + blues
+        self.races_probs = (whites/s, reds/s, blues/s)
+
+    def start(self):
+        self._field = np.random.choice((0, 1, 2), (self.size, self.size), p=self.races_probs)
+        self._field_prev = np.zeros((self.size, self.size), dtype='int8')
+        return [(0, 'Уровень сегрегации')]
+
+    def step(self):
+        self._field_prev = self._field.copy()
+        total_segregation = 0
+        to_move = []
+        # Checking for unhappy agents
+        for i in range(self.size):
+            for j in range(self.size):
+                if self._field[i][j]:
+                    coords = ((i - 1, j - 1), (i - 1, j), (i - 1, j + 1),
+                              (i, j - 1), (i, j + 1),
+                              (i + 1, j - 1), (i + 1, j), (i + 1, j + 1))
+                    # Border are connected
+                    neighbours = [self._field_prev[(coord[0] % self.size, coord[1] % self.size)] for coord in coords]
+                    same = sum((1 for neighbour in neighbours if neighbour == self._field[i][j]))
+                    total = sum((1 for neighbour in neighbours if neighbour != 0))
+                    print(total, same, self._field[i][j])
+                    segregation = same / total if total else 1
+                    # Counting current segregation level
+                    total_segregation += segregation
+                    if segregation < self.neighbours_percent:
+                        to_move.append((i, j))
+        # Random moving unhappy agents
+        empty = self._field_prev == 0
+        empty_locs = list(zip(*np.nonzero(empty)))
+        count_empty = np.sum(empty)
+        for coord in to_move:
+            k = np.random.randint(count_empty)
+            new_coord = empty_locs[k]
+            self._field[new_coord], self._field[coord] = self._field[coord], self._field[new_coord]
+            empty_locs[k] = coord
+        return [total_segregation*100/(self.size ** 2 - count_empty)]
+
+    def is_ended(self) -> bool:
+        return (self._field_prev == self._field).all()
+
+
 MODELS = {"Инфекция": Ringworm,
           "Волчий остров": Wolf_Island,
           "Игра Жизнь": Game_of_Life,
@@ -655,7 +714,8 @@ MODELS = {"Инфекция": Ringworm,
           "Поиск A*": A_Star,
           "Сахар": Sugar,
           "Песчаная куча": Sand_Pile,
-          "Лесной пожар": Forest_Fire
+          "Лесной пожар": Forest_Fire,
+          "Сегрегация": Segregation
           }
 
 if __name__ == "__main__":
