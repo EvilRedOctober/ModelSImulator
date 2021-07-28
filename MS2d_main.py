@@ -1,6 +1,3 @@
-# TODO list:
-# Form for editing parameters of selected model
-
 import sys
 from datetime import datetime
 from collections import deque
@@ -48,6 +45,8 @@ class Model_Thread(QtCore.QThread):
                 self.paint()
                 self.paintingSignal.emit(self.img.copy())
                 self.graphSignal.emit(values)
+            else:
+                self.msleep(1000)
         if self.model.is_ended():
             self.simEndedSignal.emit()
 
@@ -114,6 +113,63 @@ class My_Canvas(FigureCanvas):
         self.show()
 
 
+class ParametersDialog(QtWidgets.QDialog):
+    def __init__(self, parameters, proxy, parent=None):
+        # Main part of sub window
+        QtWidgets.QDialog.__init__(self, parent)
+
+        self.setWindowTitle("Параметры модели")
+        self.resize(500, 300)
+        self.mainBox = QtWidgets.QVBoxLayout()
+        self.setLayout(self.mainBox)
+
+        # Table with parameters
+        self.tableWidget = QtWidgets.QTableWidget()
+        self.mainBox.addWidget(self.tableWidget)
+        n = len(parameters)
+        self.tableWidget.setRowCount(n)
+        self.tableWidget.setColumnCount(2)
+        # Making headers fo table
+        item = QtWidgets.QTableWidgetItem('Параметр')
+        item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+        self.tableWidget.setHorizontalHeaderItem(0, item)
+        item = QtWidgets.QTableWidgetItem('Значение')
+        item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+        self.tableWidget.setHorizontalHeaderItem(1, item)
+        for i, key in enumerate(parameters):
+            # Setting widgets
+            label = QtWidgets.QLabel(parameters[key]['name_rus'])
+            spin = QtWidgets.__dict__[parameters[key]['spin_type']]()
+            spin.setValue(parameters[key]['value'])
+            spin.setMaximum(parameters[key]['max'])
+            spin.setMinimum(parameters[key]['min'])
+
+            # Creating functions for signals
+            def callback(value, key=key):
+                proxy[key] = value
+                print('value =', value)
+                print('proxy =', proxy)
+
+            if parameters[key]['spin_type'] == 'QDoubleSpinBox':
+                spin.setDecimals(3)
+                spin.valueChanged[float].connect(callback)
+                spin.setSingleStep((parameters[key]['max'] - parameters[key]['min'])/20)
+            else:
+                spin.valueChanged[int].connect(callback)
+            self.tableWidget.setCellWidget(i, 0, label)
+            self.tableWidget.setCellWidget(i, 1, spin)
+        self.tableWidget.resizeColumnsToContents()
+
+        # Button OK
+        self.btnOK = QtWidgets.QPushButton("&OK")
+        self.box = QtWidgets.QDialogButtonBox(QtCore.Qt.Horizontal)
+        self.box.addButton(self.btnOK, QtWidgets.QDialogButtonBox.AcceptRole)
+        self.box.accepted.connect(self.accept)
+        self.mainBox.addWidget(self.box)
+
+        self.update()
+
+
 class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         # Setup
@@ -121,6 +177,7 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # Widgets setups
+        self.tabWidget.setCurrentIndex(0)
         self.setWindowIcon(QtGui.QIcon("./images/MD2d.jpg"))
         self.modelSelector.addItems(MODELS.keys())
         self.ModelClass = MODELS[self.modelSelector.currentText()]
@@ -142,6 +199,8 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.canvas = My_Canvas(self.tab_graph, self.x, self.Y, self.legends)
         self.canvas.move(0, 0)
         self.gridLayout_3.addWidget(self.canvas, 0, 0)
+        self.parameters = {}
+        self.proxy_parameters_value = {}
 
         # Connecting function to events
         self.gridLayout.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
@@ -149,23 +208,27 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.modelSelector.activated.connect(self.model_selected)
         self.horizontalSlider.valueChanged[int].connect(self.on_value_changed)
         self.horizontalSlider.valueChanged[int].connect(self.thread.set_time)
-        self.thread.paintingSignal.connect(w.change_image)
-        self.thread.graphSignal.connect(self.graph_change)
+        self.thread.paintingSignal[QtGui.QImage].connect(w.change_image)
+        self.thread.graphSignal[list].connect(self.graph_change)
         self.thread.simEndedSignal.connect(self.on_ended)
 
         # Setup menu bar
         self.actExit = QtWidgets.QAction("Выход", None)
         self.actExit.setShortcut("Ctrl+Q")
         self.actExit.triggered.connect(QtWidgets.qApp.quit)
-        self.menuHelp = QtWidgets.QMenu("Помощь")
+        self.menuHelp = QtWidgets.QMenu("Информация")
+        self.actParameters = QtWidgets.QAction("Параметры", None)
+        self.actParameters.setShortcut("F3")
+        self.actParameters.triggered.connect(self.click_parameters)
         self.actAbout = QtWidgets.QAction("О программе", None)
         self.actAbout.setShortcut("F1")
         self.actAbout.triggered.connect(self.click_about)
-        self.actPyQt = QtWidgets.QAction("О PyQt", None)
+        self.actPyQt = QtWidgets.QAction("О Qt", None)
         self.actPyQt.setShortcut("F2")
         self.actPyQt.triggered.connect(self.click_pyqt)
         self.menuHelp.addAction(self.actAbout)
         self.menuHelp.addAction(self.actPyQt)
+        self.menuBar.addAction(self.actParameters)
         self.menuBar.addMenu(self.menuHelp)
         self.menuBar.addAction(self.actExit)
 
@@ -195,7 +258,7 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.legends.clear()
         self.x.append(1)
         # Preparing model and changing status
-        self.model = self.ModelClass(self.size)
+        self.model = self.ModelClass(self.size, **self.proxy_parameters_value)
         self.statusBar().showMessage(self.modelSelector.currentText())
         # Get data about legend and values
         graph_data = self.model.start()
@@ -213,6 +276,8 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ModelClass = MODELS[self.modelSelector.currentText()]
         if self.ModelClass:
             self.modelText.setText(self.ModelClass.MODEL_TEXT)
+            self.parameters = self.ModelClass.PARAMETERS
+            self.proxy_parameters_value = {key: self.parameters[key]['value'] for key in self.parameters}
         else:
             self.modelText.setText('Модель еще не готова!')
 
@@ -236,13 +301,20 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
                                           "Программа 'Симулятор двумерных моделей', Бакаев А.И., 2021\n\n"
                                           "Основное назначение - запуск симуляций разработанных двумерных моделей. "
                                           "Программа содержит множество моделей, достпуных для симуляции. Доступен "
-                                          "выбор размера модели и скорости симуляции.\n\n"
+                                          "выбор размера модели и скорости симуляции. Имеется возможность менять "
+                                          "параметры выбранной модели с помощью соответствующего пункта меню. \n\n"
                                           "Программа разработана на языке Python при использовании библиотеки PyQt.",
                                           buttons=QtWidgets.QMessageBox.Ok,
                                           defaultButton=QtWidgets.QMessageBox.Ok)
 
     def click_pyqt(self):
         QtWidgets.QMessageBox.aboutQt(self)
+
+    def click_parameters(self):
+        for key in self.proxy_parameters_value:
+            self.parameters[key]['value'] = self.proxy_parameters_value[key]
+        dialog = ParametersDialog(self.parameters, self.proxy_parameters_value, self)
+        dialog.exec()
 
 
 app = QtWidgets.QApplication([])
