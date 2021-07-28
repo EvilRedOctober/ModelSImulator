@@ -32,6 +32,7 @@ class Abstract_model(ABC):
     """Basic class for all models. Have abstracts methods"""
     MODEL_TEXT = ''
     COLOR_LIST = ()
+    PARAMETERS = []
 
     def __init__(self, size: int = 10, *args, **kwargs):
         self.size = max(5, size)
@@ -69,19 +70,24 @@ class Ringworm(Abstract_model):
     COLOR_LIST = ('#00FF00',
                   '#3fff00', '#7eff00', '#bdff00', '#ffff00',
                   '#ffd200', '#ffa800', '#ff7e00', '#ff5400', '#ff2a00', '#ff0000')
+    PARAMETERS = {'n': {'value': 1, 'min': 1, 'max': 61, 'spin_type': 'QSpinBox',
+                        'name_rus': 'Число первых зараженных клеток'},
+                  'prob': {'value': 0.4, 'min': 0.1, 'max': 1, 'spin_type': 'QDoubleSpinBox',
+                           'name_rus': 'Вероятность заражения'}}
 
-    def __init__(self, size: int = 10):
+    def __init__(self, size: int = 10, n: int = 1, prob: float = 0.4):
         super().__init__(size)
+        self.n = max(1, n)
+        self.prob = prob
 
-    def start(self, n: int = 1):
+    def start(self):
         """The n is the number of first infected cells"""
-        n = max(1, n)
         self._field = np.zeros((self.size, self.size), dtype='int8')
         self._field_prev = np.zeros((self.size, self.size), dtype='int8')
         # First infected cell in the center of field
         self._field[self.size // 2][self.size // 2] = 10
         # All others in random positions (there could be less than n)
-        for _ in range(n - 1):
+        for _ in range(self.n - 1):
             i, j = randint(0, self.size - 1), randint(0, self.size - 1)
             self._field[i][j] = 10
         return [(self.size*self.size-1, 'Здоровые клетки'), (0, 'Иммунные клетки'), (1, 'Зараженные клетки')]
@@ -99,7 +105,7 @@ class Ringworm(Abstract_model):
                     possible_coords = (coord for coord in coords if (min(coord) >= 0 and max(coord) < self.size))
                     for coord in possible_coords:
                         # There is chance that the healthy cell will be infected
-                        if self._field_prev[coord] == 0 and talon(0.4):
+                        if self._field_prev[coord] == 0 and talon(self.prob):
                             # After 6 turns infected cell will turn into immune cell,
                             # that can't be infected, after 4 turns immune cell will lost immunity
                             self._field[coord] = 10
@@ -122,8 +128,14 @@ class Wolf_Island(Abstract_model):
                  "пока рядом не окажется кролик. Оказавшись вместе с ним в одной клетке, она съедает " \
                  "кролика и получает 10 очков, инчае теряет 1 очко. Если у нее останется 0 очков, то " \
                  "она умирает. Волк аналогичен волчице, но в случае когда рядом нет кролика, но есть волчица, " \
-                 "он погонится за ней. Оказавшись в одной клетке, они дают потомство случаного пола."
+                 "он погонится за ней. Оказавшись в одной клетке, они дают потомство случайного пола."
     COLOR_LIST = ('#c8ff96', '#ffc832', '#c880ff', '#0096ff')
+    PARAMETERS = {'r_prob': {'value': 0.2, 'min': 0.1, 'max': 0.5, 'spin_type': 'QDoubleSpinBox',
+                             'name_rus': 'Процент кроликов'},
+                  'w_prob': {'value': 0.05, 'min': 0.01, 'max': 0.1, 'spin_type': 'QDoubleSpinBox',
+                             'name_rus': 'Процент волков и волчиц'},
+                  's_prob': {'value': 0.5, 'min': 0, 'max': 1, 'spin_type': 'QDoubleSpinBox',
+                             'name_rus': 'Процент самок среди волков'}}
     # 0 - empty, 1 - rabbit, 2 - she-wolf, 3 - wolf
 
     class Rabbit(Special_cell):
@@ -148,8 +160,11 @@ class Wolf_Island(Abstract_model):
             if self.cooldown > 0:
                 self.cooldown -= 1
 
-    def __init__(self, size: int = 10):
+    def __init__(self, size: int = 10, r_prob: float = 0.2, w_prob: float = 0.1, s_prob: float = 0.5):
         super().__init__(size)
+        self.r_prob = r_prob
+        self.w_prob = w_prob
+        self.s_prob = s_prob
         self._rabbits = []
         self._she_wolves = []
         self._wolves = []
@@ -159,11 +174,11 @@ class Wolf_Island(Abstract_model):
         self._field = np.zeros((self.size, self.size), dtype='int8')
         for i in range(self.size):
             for j in range(self.size):
-                if talon(0.2):
+                if talon(self.r_prob):
                     self._field[i][j] = 1
                     self._rabbits.append(self.Rabbit(i, j))
-                elif talon(0.05):
-                    if talon(0.5):
+                elif talon(self.w_prob):
+                    if talon(self.s_prob):
                         self._field[i][j] = 2
                         self._she_wolves.append(self.She_Wolf(i, j, 10))
                     else:
@@ -194,7 +209,7 @@ class Wolf_Island(Abstract_model):
                 self._she_wolves.remove(wolf)
                 continue
             coords = [(i - 1, j - 1), (i - 1, j), (i - 1, j + 1),
-                      (i, j - 1), (i, j + 1),
+                      (i, j - 1), (i, j), (i, j + 1),
                       (i + 1, j - 1), (i + 1, j), (i + 1, j + 1)]
             possible_coords = [coord for coord in coords if (min(coord) >= 0 and max(coord) < self.size)]
             shuffle(possible_coords)
@@ -232,7 +247,7 @@ class Wolf_Island(Abstract_model):
                     if self._field_prev[x][y] == 2:
                         for she_wolf in self._she_wolves:
                             if she_wolf.coords() == (x, y) and she_wolf.cooldown <= 0:
-                                she_wolf.cooldown = 10
+                                she_wolf.cooldown = 5
                                 if talon(0.5) and len(self._wolves) < self.size:
                                     self._wolves.append(self.Wolf(x, y, 10))
                                 elif len(self._she_wolves) < self.size:
@@ -253,22 +268,23 @@ class Game_of_Life(Abstract_model):
                  "клетки. В мертвых клетка зарождается жизнь, если рядом есть ровно 3 живые " \
                  "клетки. Живые клетки умирают, если рядом меньше 2 (от одиночества) или больше " \
                  "3 (от переначеления) живых соседей."
-
     COLOR_LIST = ('#808080', '#00ff00')
+    PARAMETERS = {'prob': {'value': 0.5, 'min': 0.1, 'max': 0.9, 'spin_type': 'QDoubleSpinBox',
+                           'name_rus': 'Процент живых клеток'}}
 
-    def __init__(self, size: int = 10):
+    def __init__(self, size: int = 10, prob: float = 0.5):
         super().__init__(size)
+        self.prob = prob
 
     def start(self):
         # Random living cells in the world
         self._field = np.zeros((self.size, self.size), dtype='bool')
         for i in range(self.size):
             for j in range(self.size):
-                if talon(0.5):
+                if talon(self.prob):
                     self._field[i][j] = True
         self._field_prev = np.zeros((self.size, self.size), dtype='bool')
         return [(self._field.sum(), 'Живые клетки')]
-
 
     def step(self):
         self._field_prev = self._field.copy()
@@ -293,13 +309,14 @@ class Deep_First_Search(Abstract_model):
                  "рассмотрена ранее, то запускаем алгоритм от этой нерассмотренной вершины, а после " \
                  "возвращаемся и продолжаем перебирать рёбра. Возврат происходит в том случае, если в " \
                  "рассматриваемой вершине не осталось рёбер, которые ведут в нерассмотренную вершину."
-
     COLOR_LIST = ('#644b32', '#c8c8c8', '#ffc800', '#32c832', '#3264ff', '#ffff7d', '#64ffaf')
                 # 0 - wall, 1 - empty, 2 - checked, 3 - start, 4 - finish, 5 - next to check, 6 - path
+    PARAMETERS = {'p': {'value': 0.33, 'min': 0, 'max': 0.9, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Процент обрушенных стен'}}
 
-    def __init__(self, size: int = 10, k: int = 4):
+    def __init__(self, size: int = 10, p: float = 0.33):
         super().__init__(size)
-        self.k = k
+        self.p = p
         self._parents = {}
         self._finish = (0, 0)
         self._to_check = list()
@@ -334,7 +351,7 @@ class Deep_First_Search(Abstract_model):
                 coords = [(x, y) for x, y in coords if self._field[x][y] == 2]
 
         # Previous labyrinth have only one way to every cell and it's boring
-        for _ in range(self.size ** 2 // 3):
+        for _ in range(round(self.size ** 2 * self.p)):
             i, j = choice(range(1, self.size - 1)), choice(range(1, self.size - 1))
             self._field[i][j] = 1
         # Make start and remember its position
@@ -488,12 +505,17 @@ class Sugar(Abstract_model):
                  "чем требует метаблизм, то агент погибает. Каждый ход агент рассматривает клетки по горизонтали и " \
                  "вертикали в пределах дальности обзора, затем агент выбирает клетку с максимальным запасом сахара и " \
                  "перемещается туда, собирая сахар в свой запас."
-
     COLOR_LIST = ('#960000',
                   '#ffffc8', '#ffefcd', '#ffdfd2', '#ffcfd7', '#ffbfdc', '#ffafe1',
                   '#ff9fe6', '#ff8feb', '#ff7ff0', '#ff6ff5', '#ff64ff')
     # 0 - ant
     # from 1 to 11 is amount of sugar minus one
+    PARAMETERS = {'capacity': {'value': 70, 'min': 50, 'max': 200, 'spin_type': 'QSpinBox',
+                               'name_rus': 'Максимальная вместимость агента'},
+                  'metabolism': {'value': 10, 'min': 1, 'max': 24, 'spin_type': 'QSpinBox',
+                                 'name_rus': 'Максимально требуемое значение сахара, потребляемое за ход'},
+                  'view': {'value': 6, 'min': 1, 'max': 20, 'spin_type': 'QSpinBox',
+                           'name_rus': 'Максимальная дальность обзора агента'}}
 
     class Ant(Special_cell):
         def __init__(self, x, y, sugar, metabolism, view):
@@ -508,6 +530,7 @@ class Sugar(Abstract_model):
         self.max_metabolism = metabolism
         self.max_view = view
         self._ants = []
+        self._capacity = self._field.copy()
 
     def start(self):
         # Random living cells in the world
@@ -532,6 +555,7 @@ class Sugar(Abstract_model):
             metabolism = randint(1, self.max_metabolism)
             ant = self.Ant(x, y, sugar, view, metabolism)
             self._ants.append(ant)
+            self._field[x][y] = 0
         return [(len(self._ants), 'Агенты')]
 
     def step(self):
@@ -551,7 +575,7 @@ class Sugar(Abstract_model):
             possible_coords = [coord for coord in coords if (min(coord) >= 0 and max(coord) < self.size)]
             shuffle(possible_coords)
             # Take the max sugar in sight of view
-            next_coords = max(possible_coords, key = lambda c: self._field[c])
+            next_coords = max(possible_coords, key=lambda c: self._field[c])
             sugar = self._field[next_coords]
             ant.move(*next_coords)
             ant.sugar += sugar - ant.metabolism - 1
@@ -569,15 +593,29 @@ class Sand_Pile(Abstract_model):
                  "Если это так, она «опрокидывается» и переносит песок в четыре соседние " \
                  "ячейки. По периметру сетки все ячейки находятся на склоне, поэтому избыток " \
                  "перетекает через край. "
-    COLOR_LIST = ('#e1e1e1', '#FFece1', '#FFe0c8', '#FFd4af', '#FFc896', '#FFbc7d',
-                  '#FFb064', '#FFa44b', '#FF9832', '#FF8c19', '#FF8000')
+    COLOR_LIST = ('#e1e1e1', '#e3dad0', '#e5d3bf', '#e7ccae', '#e9c59d', '#ebbe8c', '#edb77b', '#efb06a', '#f1a959',
+                  '#f3a248', '#f59b37', '#f79426', '#f98d15', '#fb8604', '#ff8000')
+    PARAMETERS = {'k': {'value': 4, 'min': 4, 'max': 10, 'spin_type': 'QSpinBox',
+                        'name_rus': 'Критическое количество песка'},
+                  'n': {'value': 4, 'min': 1, 'max': 10, 'spin_type': 'QSpinBox',
+                        'name_rus': 'Длина повторяющейся формы'},
+                  'p': {'value': 2, 'min': 0.1, 'max': 10, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Степень формы'}}
 
-    def __init__(self, size: int = 10, k: int = 4):
+    def __init__(self, size: int = 10, k: int = 4, n: int = 4, p: float = 2):
         super().__init__(size)
         self.k = k
+        self.n = n
+        self.p = p
 
     def start(self):
         self._field = np.random.randint(0, 11, (self.size, self.size), dtype='int8')
+        self._field = np.zeros((self.size, self.size), dtype='int8')
+        center = self.size // 2
+        for i in range(self.size):
+            for j in range(self.size):
+                self._field[i][j] = 10 - (round((abs(i - center) ** self.p + abs(j - center) ** self.p)
+                                                 ** (1 / self.p)) % self.n)
         self._field_prev = np.zeros((self.size, self.size), dtype='int8')
         return [(self._field.sum(), 'Количество песка')]
 
@@ -605,6 +643,10 @@ class Forest_Fire(Abstract_model):
                  "самовозгорания, даже если рядом нет горящего дерева. Также есть вероятность роста дерева в " \
                  "пустой ячейке."
     COLOR_LIST = ('#e1e1c8', '#64c832', '#c83232')
+    PARAMETERS = {'p': {'value': 0.01, 'min': 0.005, 'max': 0.1, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Вероятность роста дерева'},
+                  'f': {'value': 0.001, 'min': 0.001, 'max': 0.01, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Вероятность возгорания'}}
     # 0 - empty, 1 - tree, 2 - fire
 
     def __init__(self, size: int = 10, p: float = 0.01, f: float = 0.001):
@@ -656,14 +698,21 @@ class Segregation(Abstract_model):
                  "клетка и агент перемещается туда.\nВ процессе моделирования образуются кластеры одинаковых цветов, " \
                  "что показывает возникновение сегрегации."
     COLOR_LIST = ('#e1e1e1', '#af0000', '#0096ff')
+    PARAMETERS = {'p': {'value': 0.3, 'min': 0, 'max': 0.876, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Процент соседей одинакового цвета для счастья агента'},
+                  'w': {'value': 0.1, 'min': 0.1, 'max': 0.75, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Доля пустых домов'},
+                  'r': {'value': 0.5, 'min': 0.1, 'max': 0.9, 'spin_type': 'QDoubleSpinBox',
+                        'name_rus': 'Доля красного цвета среди всех агентов'}}
+
     # 0 - empty, 1 - red, 2 - blue
 
-    def __init__(self, size: int = 10, neighbours_percent: float = 0.3, whites: int = 10, reds: int = 45,
-                 blues: int = 45):
+    def __init__(self, size: int = 10, p: float = 0.3, w: float = 0.1, r: float = 0.5):
         super().__init__(size)
-        self.neighbours_percent = neighbours_percent
-        s = whites + reds + blues
-        self.races_probs = (whites/s, reds/s, blues/s)
+        self.neighbours_percent = p
+        r = (1 - w) * r
+        b = 1 - w - r
+        self.races_probs = (w, r, b)
 
     def start(self):
         self._field = np.random.choice((0, 1, 2), (self.size, self.size), p=self.races_probs)
@@ -700,9 +749,6 @@ class Segregation(Abstract_model):
             self._field[new_coord], self._field[coord] = self._field[coord], self._field[new_coord]
             empty_locs[k] = coord
         return [total_segregation*100/(self.size ** 2 - count_empty)]
-
-    def is_ended(self) -> bool:
-        return (self._field_prev == self._field).all()
 
 
 MODELS = {"Инфекция": Ringworm,
