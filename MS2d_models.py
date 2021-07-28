@@ -615,7 +615,7 @@ class Sand_Pile(Abstract_model):
         for i in range(self.size):
             for j in range(self.size):
                 self._field[i][j] = 10 - (round((abs(i - center) ** self.p + abs(j - center) ** self.p)
-                                                 ** (1 / self.p)) % self.n)
+                                                ** (1 / self.p)) % self.n)
         self._field_prev = np.zeros((self.size, self.size), dtype='int8')
         return [(self._field.sum(), 'Количество песка')]
 
