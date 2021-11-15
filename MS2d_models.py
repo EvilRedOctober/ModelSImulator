@@ -490,7 +490,7 @@ class A_Star(Deep_First_Search):
 
 # 6
 class Sugar(Abstract_model):
-    """Yep, Another one realisation of Conway's 'Game of Life'"""
+    """Ants are harvesting sugar"""
     MODEL_TEXT = "\"Сахар\"  – это универсальная модель, адаптированная для самых разных тем. В своей простейшей " \
                  "форме \"Сахар\" представляет собой модель простой экономики, в которой агенты перемещаются " \
                  "по двумерной сетке, собирая и накапливая сахар, который представляет собой экономическое " \
@@ -553,7 +553,7 @@ class Sugar(Abstract_model):
             sugar = randint(10, self.max_capacity)
             view = randint(1, self.max_view)
             metabolism = randint(1, self.max_metabolism)
-            ant = self.Ant(x, y, sugar, view, metabolism)
+            ant = self.Ant(x, y, sugar=sugar, view=view, metabolism=metabolism)
             self._ants.append(ant)
             self._field[x][y] = 0
         return [(len(self._ants), 'Агенты')]
