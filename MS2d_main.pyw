@@ -315,8 +315,8 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         dialog.exec()
 
 
-app = QtWidgets.QApplication([])
+app = QtWidgets.QApplication(sys.argv)
 application = my_window()
 application.show()
 
-sys.exit(app.exec())
+sys.exit(app.exec_())
