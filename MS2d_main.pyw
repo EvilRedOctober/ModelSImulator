@@ -140,9 +140,9 @@ class ParametersDialog(QtWidgets.QDialog):
             # Setting widgets
             label = QtWidgets.QLabel(parameters[key]['name_rus'])
             spin = QtWidgets.__dict__[parameters[key]['spin_type']]()
-            spin.setValue(parameters[key]['value'])
             spin.setMaximum(parameters[key]['max'])
             spin.setMinimum(parameters[key]['min'])
+            spin.setValue(parameters[key]['value'])
 
             # Creating functions for signals
             def callback(value, k=key):
