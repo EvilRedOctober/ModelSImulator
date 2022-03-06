@@ -129,7 +129,7 @@ class ParametersDialog(QtWidgets.QDialog):
         n = len(parameters)
         self.tableWidget.setRowCount(n)
         self.tableWidget.setColumnCount(2)
-        # Making headers fo table
+        # Making headers for table
         item = QtWidgets.QTableWidgetItem('Параметр')
         item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
         self.tableWidget.setHorizontalHeaderItem(0, item)
@@ -179,7 +179,12 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setWindowIcon(QtGui.QIcon("./images/MD2d.jpg"))
         self.modelSelector.addItems(MODELS.keys())
         self.ModelClass = MODELS[self.modelSelector.currentText()]
+
+        self.spinSize.setMinimum(11)
+        self.spinSize.setMaximum(61)
+        self.spinSize.setSingleStep(2)
         self.size = self.spinSize.value()
+
         if self.ModelClass:
             self.model = self.ModelClass(self.size)
         self.gridLayout.setSpacing(1)
@@ -241,7 +246,7 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         while self.thread.isRunning():
             pass
         # Changing size of grid
-        self.size = self.spinSize.value() * 2 + 1
+        self.size = self.spinSize.value()
         self.gridLayout.itemAt(0).widget().setFixedSize(8*self.size-1, 8*self.size-1)
         self.thread.img = QtGui.QImage(self.size * 8 - 1, self.size * 8 - 1,
                                        QtGui.QImage.Format_ARGB32_Premultiplied)
@@ -276,8 +281,6 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
             self.modelText.setText(self.ModelClass.MODEL_TEXT)
             self.parameters = self.ModelClass.PARAMETERS
             self.proxy_parameters_value = {key: self.parameters[key]['value'] for key in self.parameters}
-        else:
-            self.modelText.setText('Модель еще не готова!')
 
     def on_value_changed(self, pos):
         """If changing speed of simulation"""
@@ -298,7 +301,7 @@ class my_window(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QMessageBox.information(self, "О программе",
                                           "Программа 'Симулятор двумерных моделей', Бакаев А.И., 2021\n\n"
                                           "Основное назначение - запуск симуляций разработанных двумерных моделей. "
-                                          "Программа содержит множество моделей, достпуных для симуляции. Доступен "
+                                          "Программа содержит множество моделей для симуляции. Доступен "
                                           "выбор размера модели и скорости симуляции. Имеется возможность менять "
                                           "параметры выбранной модели с помощью соответствующего пункта меню. \n\n"
                                           "Программа разработана на языке Python при использовании библиотеки PyQt.",
