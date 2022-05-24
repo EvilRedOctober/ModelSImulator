@@ -26,3 +26,8 @@ MS2d_form.ui             # Qt файл формы
 MS2d_main.pyw            # Файл с логикой работы формы
 MS2d_models.py           # Файл с логикой двумерных моделей
 ```
+
+## Скриншоты
+![Alt-симуляция](screenshot1.jpg)
+![Alt-симуляция](screenshot2.jpg)
+![Alt-симуляция](screenshot3.jpg)
